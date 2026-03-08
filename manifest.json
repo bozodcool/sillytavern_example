@@ -1,0 +1,9 @@
+{
+    "display_name": "Hello World Command",
+    "author": "Example",
+    "version": "1.0.0",
+    "description": "A simple Hello World slash command for SillyTavern",
+    "js": "index.js",
+    "loading_order": 1,
+    "minimum_client_version": "1.0.0"
+}
