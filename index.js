@@ -10,8 +10,37 @@ const DEFAULT_SETTINGS = {
     imageRoot: '',
 };
 
-// Module-level variable to hold settings
-let extensionSettings = null;
+// Storage key for localStorage
+const STORAGE_KEY = 'helloWorldSettings';
+
+// Store context for later use
+let savedContext = null;
+
+/**
+ * Load settings from localStorage
+ */
+function loadSettings() {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+            return JSON.parse(stored);
+        }
+    } catch (e) {
+        console.error('[Hello-World] Error loading settings:', e);
+    }
+    return { ...DEFAULT_SETTINGS };
+}
+
+/**
+ * Save settings to localStorage
+ */
+function saveSettings(settings) {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    } catch (e) {
+        console.error('[Hello-World] Error saving settings:', e);
+    }
+}
 
 /**
  * Initialize the extension
@@ -44,13 +73,11 @@ function init() {
         return;
     }
 
-    // Try to get extension_settings from various sources
-    extensionSettings = window.extension_settings || window.extension_settings || {};
+    // Save context for settings UI
+    savedContext = context;
 
-    // Initialize settings if not present
-    if (!extensionSettings.helloWorld) {
-        extensionSettings.helloWorld = { ...DEFAULT_SETTINGS };
-    }
+    // Load settings from localStorage
+    const settings = loadSettings();
 
     // Register the hello command
     SlashCommandParser.addCommandObject(
@@ -58,7 +85,7 @@ function init() {
             name: 'hello',
             callback: async () => {
                 // Get the image root from settings
-                const imageRoot = extensionSettings.helloWorld?.imageRoot || 'No image root set';
+                const imageRoot = settings.imageRoot || 'No image root set';
 
                 // Display a toast notification with the greeting and settings
                 if (typeof toastr !== 'undefined') {
@@ -75,25 +102,26 @@ function init() {
 
     // Try to add settings UI after a delay
     setTimeout(() => {
-        tryAddSettings(context);
+        tryAddSettings(settings);
     }, 2000);
 }
 
 /**
  * Try to add settings UI
- * @param {object} context - SillyTavern context
  */
-function tryAddSettings(context) {
+function tryAddSettings(settings) {
     try {
         // Check if jQuery is ready
         if (typeof jQuery === 'undefined' || typeof $ === 'undefined') {
             console.warn('[Hello-World] jQuery not ready for settings UI');
+            setTimeout(() => tryAddSettings(settings), 500);
             return;
         }
 
         // Check if extensions_settings2 exists
         if ($('#extensions_settings2').length === 0) {
             console.warn('[Hello-World] Extensions panel not found for settings UI');
+            setTimeout(() => tryAddSettings(settings), 500);
             return;
         }
 
@@ -115,7 +143,7 @@ function tryAddSettings(context) {
                     <div class="extension_settings">
                         <div class="form-group">
                             <label for="hello_world_image_root">Image Root Directory:</label>
-                            <input type="text" id="hello_world_image_root" class="text_input" placeholder="e.g., C:/images" value="${extensionSettings.helloWorld?.imageRoot || ''}" />
+                            <input type="text" id="hello_world_image_root" class="text_input" placeholder="e.g., C:/images" value="${settings.imageRoot || ''}" />
                         </div>
                     </div>
                 </div>
@@ -128,15 +156,14 @@ function tryAddSettings(context) {
 
         // Add event listener for the input
         $('#hello_world_image_root').on('input', function () {
-            extensionSettings.helloWorld.imageRoot = String($(this).val());
-            if (context && context.saveSettingsDebounced) {
-                context.saveSettingsDebounced();
-            }
-            console.log('[Hello-World] Image root updated:', extensionSettings.helloWorld.imageRoot);
+            settings.imageRoot = String($(this).val());
+            saveSettings(settings);
+            console.log('[Hello-World] Image root updated:', settings.imageRoot);
         });
 
     } catch (error) {
         console.error('[Hello-World] Error adding settings UI:', error);
+        setTimeout(() => tryAddSettings(settings), 500);
     }
 }
 
